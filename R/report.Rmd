@@ -1,0 +1,87 @@
+---
+title: |
+ | \vspace{5cm} Tarea N°1
+subtitle: |
+ Econometrics Theory - EAE350B-1
+date: "`r format(Sys.Date(), '%A %d, %B %Y')`"
+author: |
+ |  Estudiante [Valentina Andrade](mailto:valentinaandrade@uchile.cl)
+ |  Profesor Raimundo Soto
+ | Ayudantes Sofía Valdivia y Gabriel Zelpo
+ | \vspace{5cm}
+header-includes:
+- \usepackage{titling}
+- \pretitle{\begin{center}\LARGE\includegraphics[width=6cm]{../input/logo-ie-uc.png}\\[\bigskipamount]}
+- \posttitle{\end{center}}
+- \usepackage{booktabs}
+- \usepackage{amsmath}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage{threeparttablex}
+- \usepackage[normalem]{ulem}
+- \usepackage{makecell}
+output:
+  pdf_document:
+    extra_dependencies: ["float"]
+    latex_engine: xelatex
+    highlight: tango
+    number_sections: FALSE
+    toc: yes
+  html_document:
+    highlight: tango
+linkcolor: red
+urlcolor: blue
+link-citations: yes
+fontsize: 11pt
+lang: "es-CL"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE,
+                      error = F, 
+                      message = FALSE,
+                      fig.pos = "H", out.extra = "") 
+Sys.setlocale("LC_ALL","ES_ES.UTF-8") # para temas de caracteres en español, recomendable
+```
+
+
+# Problem 1
+
+1. Genere  un  vector con 1.000 observaciones  de datos  aleatorios  que provengan  de  una distribución  normal de media 10.000 y desviación estándar de 50, llámelo $Y$. Luego, genere otra variable,  llamada $C$, tal que $C = \beta \cdot Y$ con $\beta = 0.9$.
+
+```{r, echo = T}
+y <- rnorm(1000,mean=10000,sd=50)
+c <- 0.9*y
+```
+
+2.Usando  los  datos anteriores,  realice una  regresión  lineal de  C  en  Y.
+
+¿Cuál  es  el estimador $\hat{\beta}$?¿Es éste distinto o igual a 0.9?¿Cuál es el intervalo de confianza del estimador al 95%? ¿Cuál es el $R^2$ de la regresión?¿Es significativo el modelo de acuerdo al test $F$? Explique 
+por qué obtiene esos resultados.
+
+3.Genere un vector aleatorio y llámelo $\epsilon_1$ tal que este provenga de una distribución normal 
+con media 0 y desviación estándar de 5.
+
+Genere otra variable llamada $Y_1 = Y + \epsilon_1$ y estime 
+una  regresión  lineal de  $C$ en $Y_1$  
+
+¿Cuál  es  el estimador $\hat{\beta}$? ¿Es éste  distinto  o igual  a  0.9?  ¿Cuál  es  el  intervalo  de confianza  del estimador  al  95%?  ¿Cuál  es  el $R^2$  de  la  regresión? 
+¿Por qué? ¿Es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos 
+resultados.
+
+4.Genere  la  variable  $Y_2 = Y_1 + 100$ y  estime  una  regresión  lineal  de $C$ en  $Y_2$ ¿Cuál es  el estimador $\hat{\beta}$? ¿Cómo cambia el valor de la constante respecto del caso anterior? ¿Cuál es el $R^2$ de la regresión? ¿Cuál es el intervalo de confianza del estimador al 95%? ¿es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos resultados.
+
+5. Genere un vector aleatorio y llámelo $\epsilon_2$ tal que este provenga de una distribución normal con  media  0  y desviación  estándar  de  50.  Genere  otra variable  llamada  $C1 = C + \epsilon_2$ y  estime  una  regresión lineal  de  $C_1$  en $Y$.  ¿Cuál  es  el  estimador  del  regresor  $Y$?  ¿Es  este distinto o igual a 0.9? ¿Cuál es el intervalo de confianza del estimador al 95%?
+¿Cuál es el 
+$R^2$  de  la  regresión?  ¿es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos resultados.
+
+6. Genere  un  vector con  1.000 observaciones  de datos  aleatorios  que provengan  de  una  distribución  normal de  media  150  y desviación  estándar de  25,  llámelo $Z$. Luego,  genere otra variable, llamada $C_2$, tal que $C_2=0.9\cdot Y-0.25\cdot Z$. Estime la regresión de $C_2$en $Y$ y $Z$. 
+¿Por qué obtiene esos estimadores? ¿Cuál es el $R^2$ de la regresión? ¿Cuál es el intervalo de 
+confianza  de  los  estimadores  al  95%?  ¿es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos resultados. 
