@@ -3,7 +3,8 @@
 
 # 1. Instalar paquetes ----------------------------------------------------
 library(tidyverse)
-install.packages("showtext")
+library(magrittr)
+#install.packages("showtext")
 if(require(showtext)){
  
   sysfonts::font_add_google("IBM Plex Sans", "plex")
@@ -52,14 +53,14 @@ primer_loop <- function(m = 50, distribucion_e = "norm01",
     estimacion = mod$coefficients,
     )
   
-  moddf <- moddf |> 
+  moddf <- moddf %>%  
     add_row(
       parametro = "b1+b2",
       estimacion = sum(mod$coefficients[c(2, 3)])
     )
   
   # para que salgan ordenado en ggplot/facet
-  moddf <- moddf |>
+  moddf <- moddf %>% 
     mutate(parametro = fct_inorder(parametro))
   
   moddf
@@ -91,7 +92,7 @@ segundo_loop <- function(n = 50, m = 50, distribucion_e = "norm01", b0, b1, b2){
       b0 = b0, b1 = b1, b2 = b2
       )
     
-    resultado_sim <- resultado_sim |> 
+    resultado_sim <- resultado_sim %>%  
       mutate(
         n = n,
         replica = i,
@@ -135,7 +136,7 @@ resultado <- segundo_loop(
 valores_reales <- tibble(
   parametro = c("b0", "b1", "b2", "b1+b2"),
   estimacion =  c(b0, b1, b2, b1 + b2)
-) |> 
+) %>% 
   mutate(parametro = fct_inorder(parametro))
 
 ggplot(resultado) + 
@@ -155,10 +156,10 @@ combinaciones <- crossing(
   # numero de loop 1
   m = c(50, 100, 500),
   distribucion_e = c("norm01", "unif01", "poiss1/10")
-) |> 
+) %>% 
   arrange(distribucion_e, n, m)
 
-combinaciones <- combinaciones |> 
+combinaciones <- combinaciones  %>%  
   mutate(b0 = b0, b1 = b1, b2 = b2)
 
 graficar_segundo_loop <- function(resultado) {
@@ -175,10 +176,10 @@ graficar_segundo_loop <- function(resultado) {
   
 }
 
-todos_los_resultados <- combinaciones |> 
+todos_los_resultados <- combinaciones %>%  
   pmap(segundo_loop)
 
-todos_los_graficos <- todos_los_resultados |> 
+todos_los_graficos <- todos_los_resultados %>%
   map(graficar_segundo_loop)
 
 
@@ -205,7 +206,7 @@ todos_los_graficos[[18]]
 # componente de posición b0.
 
 
-pdf("~/resultados.pdf", width = 16, height = 9)
+pdf("resultados_problem2.pdf", width = 16, height = 9)
 
 map(todos_los_graficos, print)
 
