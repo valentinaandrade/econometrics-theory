@@ -1,0 +1,880 @@
+---
+title: |
+ | \vspace{5cm} Tarea N°1
+subtitle: |
+ Econometrics Theory - EAE350B-1
+date: "`r format(Sys.Date(), '%A %d, %B %Y')`"
+author: |
+ |  Estudiante [Valentina Andrade](mailto:valentinaandrade@uchile.cl)
+ |  Profesor Raimundo Soto
+ | Ayudantes Sofía Valdivia y Gabriel Zelpo
+ | \vspace{5cm}
+header-includes:
+- \usepackage{titling}
+- \pretitle{\begin{center}\LARGE\includegraphics[width=6cm]{../input/logo-ie-uc.png}\\[\bigskipamount]}
+- \posttitle{\end{center}}
+- \usepackage{booktabs}
+- \usepackage{amsmath}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage{threeparttablex}
+- \usepackage[normalem]{ulem}
+- \usepackage{makecell}
+output:
+  pdf_document:
+    extra_dependencies: ["float"]
+    latex_engine: xelatex
+    highlight: tango
+    number_sections: FALSE
+    toc: yes
+  html_document:
+    highlight: tango
+linkcolor: red
+urlcolor: blue
+link-citations: yes
+fontsize: 11pt
+lang: "es-CL"
+abstract: |
+  El siguiente reporte tiene por objetivo presentar los análisis realizados en la Tarea N°1 del ramo Teoría Econometríca I dictado por el profesor Raimundo Soto. En la primera parte abordamos propiedades de la estimación de Mínimos Cuadrados Ordinarios, junto con un diálogo con el Teorema Central del Límite. En la parte 2 discutimos de manera más concreta los supuestos y resultados de la teoría asintótica. 
+---
+
+```{r setup1, include=FALSE}
+set.seed(1910)
+knitr::opts_chunk$set(echo = F,
+                      warning = FALSE,
+                      error = F, 
+                      message = FALSE,
+                      fig.pos = "H", out.extra = "") 
+Sys.setlocale("LC_ALL","ES_ES.UTF-8") # para temas de caracteres en español, recomendable
+
+#Paquetes
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, broom, magrittr,kableExtra)
+
+theme_set(theme_minimal())
+
+if(require(showtext)){
+  sysfonts::font_add_google("IBM Plex Sans", "plex")
+  showtext::showtext_auto()
+   
+}
+
+options(knitr.table.format = "latex")
+# kable <- function(data) {
+#   kableExtra::kable(data, booktabs = TRUE, digits = 3) %>% 
+#     kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+# }
+options(knitr.kable.NA = '')
+
+```
+
+
+```{r setup, include=FALSE}
+confint2 <- function(object, level = 0.95){
+  
+  dfout <- confint(object, level = 0.95)
+  dfout <- rownames_to_column(as.data.frame(dfout), var = "parámetro")
+  dfout <- dfout %>%  
+    mutate(amplitud_del_intervalo = `97.5 %`  - `2.5 %`)
+  
+  dfout
+  
+}
+```
+
+
+# Parte 1
+
+## Pregunta 1
+
+Genere  un  vector con 1.000 observaciones  de datos  aleatorios  que provengan  de  una distribución  normal de media 10.000 y desviación estándar de 50, llámelo $Y$. Luego, genere otra variable,  llamada $C$, tal que $C = \beta \cdot Y$ con $\beta = 0.9$.
+
+```{r}
+datos <- tibble(Y = rnorm(n = 1000, mean = 10000, sd = 50))
+
+beta <- 0.9
+
+datos <- datos %>%  
+  mutate(C = beta * Y)
+
+kable(head(datos), caption = "Proceso generador de datos") %>%
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+## Pregunta 2
+
+Usando  los  datos anteriores,  se ha realizado una  regresión  lineal de  $C$  en  $Y$.
+
+
+```{r warning=F}
+# Estimacion modelo
+reglin0 <- lm(C ~ Y, data = datos)
+
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(reglin0, digits = 3,                caption = "Modelo de regresión lineal", custom.note = "F statistic = 4.044168e+30",
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = "Modelo 1",
+               float.pos = "H")
+```
+
+```{r include=FALSE}
+coefficients(reglin0)[2]
+coefficients(reglin0)[2] - .9 # ¿Es éste distinto o igual a 0.9?
+```
+
+La estimación de $\hat{\beta}$ es `r coefficients(reglin0)[2]`. Numéricamente, este es prácticamente el valor original, pues la distancia entre 0.9 y la estimación es de `r coefficients(reglin0)[2] - .9`, es decir, prácticamente cero. En el Cuadro 4 podemos ver el intervalo de confianza al 95%, el cual muestra tener una amplitud muy pequeña pues este es menor a $10\cdot e^{-10}$
+
+```{r, echo = F}
+#Con la función `confint` creada al inicio, podemos tener el intervalo de confianza con la significancia solicitada.
+df_intervalos0 <- confint2(reglin0, level = 0.95)
+df_intervalos0 %>% kable(., caption = "Intervalo de confianza") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+```{r, include= F}
+df_resumen_reglin0 <- glance(reglin0)
+df_resumen_reglin0$r.squared == (cor(datos$Y, datos$C))**2
+```
+
+El cuadro 1 nos señala que el $R^2$ del modelo es `r df_resumen_reglin0$r.squared`. Notar que en 
+este caso, al ser un predictor tenemos que $R^2 = cor(Y, C)^2$. Respecto a la significancia global del modelo, el estadístico F es igual a `r df_resumen_reglin0$statistic` asociado al valor-p `r df_resumen_reglin0$p.value` indicando que no existe evidencia estadística de que $C$ no posea efecto sobre $Y$.
+
+En síntesis, podemos ver cómo se da la relación entre $C$ con $Y$ en la siguiente gráfica. Tal como podemos ver en la figura, la relación es prácticamente perfecta. Esto se debe a que la simulación corresponde a una relación detérministica entre $C$ e $Y$, donde Y corresponde a una combinación lineal de C. En este modelo hay ausencia de un efecto aleatorio pues pese a que hicimos una muestra random el proceso generador de los datos, la variable dependiente es generada únicamente de la misma variable dependiente.
+```{r, echo =F}
+ggplot(datos, aes(Y, C)) +
+  geom_point()
+```
+
+Pese a que este análisis es muy simple, de aquí en adelante será importante precisar los siguientes puntos. 
+
+En *OLS* cuando se estiman los parámetros buscaremos minimizar suma de los residuos al cuadrado $u'u$. En este caso obtuvimos
+
+$$
+\sum\limits_{i=0}^n{\hat{u}_i} = `r round(sum(reglin0$residuals))`
+$$
+
+[^1]: *Ordinary Least Squares*, o en español, Mínimo Cuadrado Ordinarios (*MCO*)
+
+Cuando ponemos esta suma de residuos en contraste a la suma total de cuadrados $SST$, podemos saber cuanto de la varianza de la variable dependiente es explicada por el conjunto de predictores, o en otras palabras cuál es la suma de cuadrados explicados $SSE$. Evidentemente con ello podemos notar que si toda la varianza de $Y$ proviene de $C$, entonces $SST = SSE$. Como $R^2$ se define como el ratio entre estas dos, evidentemente este será 1.
+
+Sabemos que el estadístico F es una prueba de significancia conjunta un grupo de variables ($q$) que pertenecen a $k$ parámetros de un modelo, y que busca probar que esas $q$ de las $k$ variables **no** tienen un efecto parcial sobre $y$. Este tipo de estadísticos son muy utilizados cuando se requiere testear restricciones de exclusión en los modelos de regresión, elemento que volveremos a evaluar en el punto 11. En términos generales, se buscará que la suma de residuos cuadrados del modelo restringido ($SSR_r$) sea mayor que el modelo sin restringir ($SSR_nr$), siendo coherentes con la estimación MCO dado que un mayor número de predictores incorporados en el modelo aumentará la bondad de ajuste ($\nearrow R^2, \searrow SSR$). En consecuencia, se probará si esta diferencia entre los $SSR$ de los modelos es estadísticamente distinto. Formalmente,
+
+\begin{align}
+F_{(n,k, gl)} \equiv \frac{(SSC_r - SSC_{nr})/q}{SSC_{nr}/(n-k-1)}
+\end{align}
+
+Donde $SSR$ indica la suma de residuos cuadrados, $n$ el número de observaciones del modelo, $k$ el número de parámetros ($gl= n-k-1$) y $q$ el número de restricciones. Los subíndices *r* y *nr* indican el modelo con restricciones $q$ en parámetros y sin restricciones, respectivamente. El modelo sin restricciones, cuando no se explicita cuál es corresponde a un modelo *nulo* sin predictores. 
+
+A su vez, sabemos que si el estadístico *F* es calculado a partir de la suma de residuos cuadrados, y el coeficiente de determinación *R^2* lo podemos calcular como $R^2 = 1- \frac{SSR}{SST}$, donde $SST$ es la suma total de los residuos, podemos decir que
+
+\begin{align}
+F_{(q,k, gl)} = \frac{(R^2_{nr} - R^2_{r})/q}{1- R^2_{nr}/(n-k-1)}
+\end{align}
+
+Recordemos que dado que el $R^2_{r}$ no tiene predictores, este es cero
+
+\begin{align}
+F_{(q,k, gl)} = \frac{(R^2_{nr}/k}{1- R^2_{nr}/(n-k-1)}
+\end{align}
+
+Es por ello que los resultados obtenidos, por lo general, estarán muy conectados. Como se puede notar su hilo conductor es la minimización de la $SSR$, por lo que entender qué hay detrás de ellos será la clave para entender qué va pasando en las siguientes preguntas. 
+
+## Pregunta 3
+
+Generamos un vector aleatorio y lo hemos llamado $\epsilon_1$ tal que este provenga de una distribución normal con media 0 y desviación estándar de 5.
+Además, se ha generado otra variable llamada $Y_1 = Y + \epsilon_1$ y hemos estimado una  regresión  lineal de  $C$ en $Y_1$  
+
+¿Cuál  es  el estimador $\hat{\beta}$? ¿Es éste  distinto  o igual  a  0.9?  ¿Cuál  es  el  intervalo  de confianza  del estimador  al  95%?  ¿Cuál  es  el $R^2$  de  la  regresión? 
+¿Por qué? ¿Es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos 
+resultados.
+
+```{r, include = F}
+datos <- datos %>%  
+  mutate(
+    e1 = rnorm(n = 1000, mean = 0, sd = 5),
+    Y1 = Y + e1
+    )
+
+glimpse(datos)
+
+reglin1 <- lm(C ~ Y1, data = datos) # Estimacion
+df_resumen_reglin1 <- glance(reglin1) # Resumen parsimonioso
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(reglin1, digits = 3,                caption = "Modelo de regresión lineal", custom.note = "F statistic = 99710.81, df = 1, gl = 998",
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = "Modelo 2",
+               float.pos = "H")
+```
+
+
+Como podemos ver en el cuadro la estimación de $\hat \beta$ es `r coefficients(reglin1)[2]`. Respecto a su distancia con el valor que originalmente tomamos para la regresión, si bien no es igual, aun así son muy similares, difieren en  `r .9 -  coefficients(reglin1)[2]`.
+
+Respecto al intervalo de confianza, podemos ver la siguiente tabla
+
+```{r, echo = F}
+df_intervalos1 <- confint2(reglin1, level = 0.95)
+df_intervalos1 %>% kable(., caption = "Intervalo de confianza") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+El $R^2$ es `r df_resumen_reglin1$r.squared` y no es 1 pues, a diferencia de antes, hemos agregado un componente aleatorio a la variable dependiente, $\epsilon_1$. Entonces, cuando hacemos la estimación ahora existe una parte de la varianza de $C$ que no es explicada completamente por $Y$, y por ello, la suma de residuos al cuadrado $SSR$ crece. En la primera regresión $SSR$ comprende es `r sum(summary(reglin0)$residuals)`, mientras que en la segunda regresión $SSR$ es `r sum(summary(reglin1)$residuals)`. 
+
+
+¿Es significativo el modelo de acuerdo al test $F$?
+
+```{r, include = F}
+summary(reglin1)
+```
+
+El valor reportado es *F(`r summary(reglin1)$fstatistic`)*, donde la primera coordenada indica el valor observado de F (*F, k, gl*). A partir de estos valores se puede obtener su *valor-p* que es $2.2\cdot e ^-16$ el que nos indica que se rechaza la hipótesis nula que indica que los predictores en conjunto no tienen un efecto sobre $C$.
+
+Ya hemos comentado sabemos que existe un diálogo entre estos distintos resultados, por la sencilla razón de que todos provienen de la misma fuente: $SSR$. En este tercer inciso se nos ha solicitado que el $C$ esté compuesto por $Y$ y un error. Y luego cuando hacemos la estimación, queremos saber cuál es el efecto marginal de $Y$ sobre $C$. Evidentemente de toda la varianza de $C$ no todo puede ser explicado por $Y$, pues está compuesta la variable dependiente por un error. 
+
+Formalmente   $C = Y_1 + {\epsilon}_1 = 0.9 \cdot Y + {\epsilon}_1$.
+
+En el fondo, si imaginamos que no podemos saber *cuál es ese error aleatorio* que está en Y, formalmente estamos mostrando cómo se comporta en una regresión la parte sistemática de la no sistemática, y como pese a ello *OLS* intenta llegar a la mejor estimación lineal insesgada (las estimaciones son muy similares en presencia de un error).
+
+
+## Pregunta 4
+
+Genere  la  variable  $Y_2 = Y_1 + 100$ y  estime una  regresión  lineal  de $C$ en  $Y_2$ ¿Cuál es el estimador $\hat{\beta}$? ¿Cómo cambia el valor de la constante respecto del caso anterior? ¿Cuál es el $R^2$ de la regresión? ¿Cuál es el intervalo de confianza del estimador al 95%? ¿es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos resultados.
+
+
+```{r, echo=FALSE, include = F}
+datos <- datos %>%  
+  mutate(Y2 = Y1 + 100)
+
+glimpse(datos)
+
+reglin2 <- lm(C ~ Y2, data = datos)
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(reglin2, digits = 3,                caption = "Modelo de regresión lineal", custom.note = "F statistic = 99710.81, df = 1, gl = 998",
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = "Modelo 3",
+               float.pos = "H")
+```
+
+
+La estimación de $\beta$ es `r coefficients(reglin2)[2]`. El valor de la constante respecto del caso anterior es idéntico al del modelo de regresión  de $C$ en $Y_1$. En efecto:
+
+```{r, echo = F}
+# modelo pregunta 3
+coefficients(reglin1)[2]
+
+# modelo pregunta 4
+coefficients(reglin2)[2]
+```
+
+```{r, echo = F}
+df_resumen_reglin2 <- glance(reglin2)
+```
+
+El $R^2$ es `r df_resumen_reglin2$r.squared`, que es igual a la bondad de ajuste del modelo 2. Pasa lo mismo con los intervalos de confianza
+
+```{r echo = F}
+df_intervalos2 <- confint2(reglin2, level = 0.95)
+df_intervalos2 %>% kable(., caption = "Intervalo de confianza") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+¿Es significativo el modelo de acuerdo al test $F$?
+
+```{r, include = F}
+summary(reglin1)
+```
+
+El valor reportado es *F(`r summary(reglin2)$fstatistic`)*, donde la primera coordenada indica el valor observado de F (*F, k, gl*). A partir de estos valores se puede obtener su *valor-p* que es $2.2\cdot e ^-16$ el que nos indica que se rechaza la hipótesis nula que indica que los predictores en conjunto no tienen un efecto sobre $Y$. Estos resultados son los mismos que antes. 
+
+Los resultados en términos de ajuste coindicen con la represión anterior pues lo único que se hizo fue trasladar en 100 puntos la variable dependiente. Esto es similar a cuando pensamos transformaciones funcionales en los modelos de regresión. Estos no cambian las propiedades de *OLS*, sino que re-escalan las unidades de medida, muchas veces para mejorar interpretaciones. Veamos esto de forma gráfica:
+
+```{r, echo = F}
+datos %>%  
+  select(C, Y1, Y2) %>%  
+  gather(key, value, -C) %>%  
+  ggplot(aes(value, C, fill = key)) +
+  geom_point(shape = 21, alpha = 0.25) +
+  scale_fill_discrete(name = "Variable regresora")
+```
+
+Antes de cerrar la pregunta 3 y 4 es importante señalar que este es una forma de estudiar qué pasa con las propiedades de *OLS* cuando la variable dependiente tiene un error asociado. Consideremos que la primera regresión representa el modelo original. Luego tenemos que $Y^*$ (valor verdadero), entonces $Y = Y^* +e_1 \Longrightarrow e_1 = Y -Y^*$. Con ello el modelo original se escribe como
+
+$$
+C = \beta \cdot Y^* + u
+$$
+Mientras, que el modelo que estimamos se escribe como
+
+$$
+C = \beta \cdot Y + u + e_o
+$$
+Si tomamos por supuesto el error clásico de variable donde $cov(Y^*, e_1) = 0$, $cov(Y, e_1) = \sigma^2_e$ y $cov(Y, C) = \beta \cdot \sigma^2_e$
+
+Con ello notaremos que $\hat \beta$ es sesgado (lo que se llama sesgo de atenuación), y su consistencia depende de la relación que se tiene con $e_1$. 
+
+$$
+plim(\hat \beta) = plim (\frac{cov(C,Y)}{Var(Y)})  =\frac{cov(y*,c) + cov(e_2,c)}{var(y*) + var(e_1) + 2cov(y*,e_2)} = \frac{cov(y*, u+ \beta \cdot y* )}{var(y*) + var(e_1)} = \beta \cdot \frac{var(y*)}{var(y*) + var(e_1)}
+$$
+Donde el último término corresponde al sesgo de atenuación del error en la variable dependiente. Si la varianza del error aleatorio pesa poco, entonces $var(y*) > var(y)$, por lo que la inconsistencia será más pequeña. De hecho, la varianza de $e_1$ es de cerca de un `r sd(datos$e1)`, mientras que la de $Y_1$ es `r sd(datos$Y1)`
+
+## Pregunta 5
+
+Se ha generado un vector aleatorio y lo llamamos $\epsilon_2$ tal que este provenga de una distribución normal con  media  0  y desviación  estándar  de  50.  Además, se ha generado  otra variable  llamada  $C1 = C + \epsilon_2$ y se estimó una  regresión lineal  de  $C_1$  en $Y$.  
+
+```{r, echo = FALSE}
+datos <- datos %>%  
+  mutate(
+    e2 = rnorm(n = 1000, mean = 0, sd = 50),
+    C1 = C + e2
+  )
+
+reglin3 <- lm(C1 ~ Y, data = datos)
+
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(reglin3, digits = 6,                caption = "Modelo de regresión lineal", custom.note = "F statistic = 793.9376, df = 1, gl = 998",
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = "Modelo 3",
+               float.pos = "H")
+
+```
+
+En este caso podemos decir que en promedio, el efecto parcial que tiene $Y$ sobre $C$ es de 0.9 puntos ($\hat \beta = 0.9$), con un 99% de confianza. Este valor es estadísticamente distinto de cero, y numéricamente es `r summary(reglin3)$coef[2]`, por lo que tiene una distancia muy cercana con 0.9.
+
+De forma idéntica a la pregunta anterior:
+
+```{r, echo = F}
+df_intervalos3 <- confint2(reglin3, level = 0.95)
+df_intervalos3 %>% kable(., caption = "Intervalo de confianza") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+```{r, include = F}
+summary(reglin3)
+```
+
+Respecto a la bondad de ajuste podemos decir que  el $R^2$ es de `r summary(reglin3)$r.squared`, es decir cerca de un 40% de la varianza de $Y$ es explicado por este nuevo $C$, es decir, una proporción *muchísimo* menor que en los casos anteriores.
+
+El valor reportado es *F(`r summary(reglin3)$fstatistic`)*, donde la primera coordenada indica el valor observado de F (*F, k, gl*). A partir de estos valores se puede obtener su *valor-p* que es $2.2\cdot e ^-16$ el que nos indica que se rechaza la hipótesis nula que indica que los predictores en conjunto no tienen un efecto sobre $Y$. Estos resultados son los mismos que antes. 
+
+A partir de este ejercicio podemos discutir las implicancias de un error introducido en la variable dependiente. Formalmente, tenemos un $e_2 = C - C^*$, donde el asterisco nos indica el valor verdadero. El modelo original ha sido
+
+$$
+C* = \beta\cdot Y + u
+$$
+Y ahora estimamos
+$$
+C = \beta\cdot Y + e_2 + u
+$$
+Si el valor esperado de este error aleatorio sigue siendo cero $E(e_2)=0$ y $cov(e_2,u) =0$, entonces la estimación seguirá siendo insesgada y consistente.Para demostrarlo, llamemos al error compuesto $v = e_2 + u$. Partamos viendo que pasa con el valor esperado del error
+
+$$
+E(v) = E(u + e_2) = E(u) + E(e_2) = 0 
+$$
+Mientras que para la varianza es algo más complejo. 
+
+$$
+Var(v|Y) = Var(u+e_2|Y) = Var(v|Y) + Var(e_2|Y) + 2Cov(u,e_2|X)
+$$
+Si $cov(u,e_2|X) \neq 0$, entonces $\hat \beta$ esta sesgado (positivamente si esa covarianza es positiva, y negativamente si esa covarianza es negativa). Notemos que en este caso la estimación da prácticamente igual a la original, por lo que podemos descartar esta fuente de covarianza
+
+Si $cov(u,e_2|X) = 0$ entonces nos queda $Var(v|Y) + Var(e_2|Y)$. Notemos que estas dos varianzas serán las del modelo, y si estas son finitas (o incluso si somos más restrictivos, homocedásticas), entonces $\sigma^2_u + \sigma^2_e$. Entonces, esta estimación tendrá una mayor varianza, por lo que será *ineficiente*. Es por eso que el error estándar es *muchísimo más grande que en los casos anteriores*. Como ya hemos discutido, la varianza es un componente importante para entender los estadísticos de ajuste. En este caso, existirá una proporción de la varianza de la variable dependiente que la variable independiente no podrá capturar. 
+
+Cerremos con ver qué pasa con la consistencia:
+
+$$
+plim(\hat \beta) = plim (\frac{cov(C,Y)}{Var(Y)}) = \frac{cov(c,y* + e_2)}{var(y)} = \frac{cov(c,y*)}{var(y)} + \frac{cov(c,e_2)}{var(y)} = \beta +  \frac{cov(c,e_2)}{var(y)} 
+$$
+Entonces si $\frac{cov(c,e_2)}{var(y)} = 0$ es insesgado nuestro coeficiente. Dado los resultados, este es el caso más probable. Pero de lo que no nos salvamos, es de la ineficiencia de la estimación.  
+
+## Pregunta 6
+
+Generamos  un  vector con  1.000 observaciones  de datos  aleatorios  que provienen  de  una  distribución  normal de  media  150  y desviación estándar de  25,  y lo hemos llámado $Z$. Además generamos otra variable llamada $C_2$, tal que $C_2=0.9\cdot Y-0.25\cdot Z$. Estime la regresión de $C_2$en $Y$ y $Z$. 
+¿Por qué obtiene esos estimadores? ¿Cuál es el $R^2$ de la regresión? ¿Cuál es el intervalo de 
+confianza  de  los  estimadores  al  95%?  ¿es significativo el modelo de acuerdo al test $F$? Explique por qué obtiene esos resultados. 
+
+```{r, echo = F}
+datos <- datos %>%  
+  mutate(
+    Z = rnorm(n = 1000, mean = 150, sd = 25),
+    C2 = 0.9 * Y - 0.25 * Z
+  )
+
+
+reglin4 <- lm(C2 ~ Y + Z, data = datos)
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(reglin4, digits = 6,                caption = "Modelo de regresión lineal", custom.note = "F statistic = 793.9376, df = 1, gl = 998",
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = "Modelo 4",
+               float.pos = "H")
+
+```
+
+```{r, echo = F}
+df_intervalos4 <- confint2(reglin3, level = 0.95)
+df_intervalos4 %>% kable(., caption = "Intervalo de confianza") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+```{r, echo = F}
+# test F
+glance(reglin4) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(., caption = "Estadisticos de ajuste") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+```
+
+Primero que todo, vemos que la construcción de $C_2$ en función de $Y$ y $Z$ es determinística pues no existe la presencia de una perturbación.
+Al igual que en la pregunta N°2, esto genera que el $R^2$ sea 1, y que globalmente las variables sean estadísticamente significativas (ver test $F$).  Además, los intervalos de confianza poseen amplitud muy pequeña y centrada en el valor real de 0.9 y -0.25. Es decir, en ausencia de incertidumbre respecto a la estimación, pues sabemos a ciencia cierta que $C_2$ se conforma de una combinación lineal de $Y$ e $Z$. Entonces, cuando estimamos $C_2$ y queremos ver cuánto de su varianza es explicada por ambas variables, evidentemente será completamente por ellas. 
+
+## Pregunta 7
+
+Generamos un $C_3=C_2+\epsilon_2$ y estimamos la regresión de $C_3$ en $Y$ y $Z$. Discutiremos por qué se obtiene esos estimadores, junto con el ajuste global del modelo.
+
+```{r echo = F, include = F}
+datos <- datos %>%  
+  mutate(C3 = C2 + e2)
+
+glimpse(datos)
+
+reglinC3_YZ <- lm(C3 ~ Y + Z, data = datos)
+
+summary(reglinC3_YZ)
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(reglinC3_YZ, digits = 6,                caption = "Modelo de regresión lineal", custom.note = "F statistic = 397.9, df = 2, gl = 997",
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = "Modelo 5",
+               float.pos = "H")
+
+```
+
+Como podemos ver, por cada unidad que aumente $Y$, en promedio $C_3$ aumenta en un 0.9 puntos, ceteris paribus. Podemos decir con un 95% de confianza que se rechaza la hipótesis nula de que $Y$ no tiene un efecto sobre $C_3$. Por otro lado, por cada unidad que aumente $Z$, en promedio $C_3$ disminuye en un 0.16 puntos, ceteris paribus. Podemos decir con un 95% de confianza que se rechaza la hipótesis nula de que $Z$ no tiene un efecto sobre $C_3$.
+
+```{r, echo = F}
+df_intervalo <- confint2(reglin3, level = 0.95)
+df_intervalo %>% kable(., caption = "Intervalo de confianza") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+```{r, echo = F}
+# test F
+glance(reglinC3_YZ) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(.)
+
+```
+
+Nuevamente tenemos una variable dependiente medida con error, por lo que los análisis anteriores también se extrapolan a este caso. Es decir, los estimadores que obtenemos siguen siendo insesgados pero ineficientes. Al igual que antes se muestra que tenemos una bondad de ajuste en términos de $R^2$ similar al ejercicio 5. Esto se debe a que $C$ esta conformado por una partición de ambas variables más el error, por lo que a no ser que ingresemos una variable que sepa capturar ese error aleatorio (lo cuál no siempre tiene sentido si la investigación no se enfoca a captar ese residuo), entonces solo en ese caso aumentaría la bondad de ajuste. Notemos además, que en presencia de dos variables dependientes, el estadístico de ajuste no "castiga" la estimación multivariada debido a que ambas variables aportan información sobre la variación de la variable dependiente.
+
+Ahora bien, pese a lo indicado sobre el error en variable dependiente y el aumento de la incertidumbre en la estimación, las estimaciones obtenidas están cerca de los valores 0.9 y -0.25 del ejercicio anterior. Matemáticamente, tenemos una perturbación pues partiendo por $C_3 = C_2 + e_2$, y luego reemplazando $C_2$ en términos de $Y$ y $Z$ tenemos que  $C_3 = 0.9 * Y − 0.25 * Z + e_2$.
+
+## Pregunta 8
+
+Haremos dos regresiones separadas. La primera de  $C_3$ en $Y$ y la segunda de $C_3$ en $Z$. 
+
+
+```{r, echo = F, include = F}
+reglinC3_Y <- lm(C3 ~ Y, data = datos)
+reglinC3_Z <- lm(C3 ~ Z, data = datos)
+
+summary(reglinC3_Y)
+summary(reglinC3_Z)
+```
+
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(l = list(reglinC3_Y, reglinC3_Z), digits = 6,                caption = "Modelos de regresión lineal simple", 
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = c("Modelo 6", "Modelo 7"),
+               float.pos = "H")
+
+```
+
+
+```{r, echo = F}
+df_intervalo <- confint2(reglinC3_Y, level = 0.95)
+df_intervalo %>% kable(., caption = "Intervalo de confianza para Modelo 6") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+```{r, echo = F}
+# test F
+glance(reglinC3_Y) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(.) %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+```
+
+
+```{r, echo = F}
+df_intervalo <- confint2(reglinC3_Z, level = 0.95)
+df_intervalo %>% kable(., caption = "Intervalo de confianza para Modelo 7") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+```{r, echo = F}
+# test F
+glance(reglinC3_Z) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(.) %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+```
+
+En términos descriptivos podemos decir que el primer modelo,  $C_3$ en $Y$ es mejor en términos de ajuste. Si bien los dos modelos son significativos en términos del test F, el segundo modelo está muy cerca de no serlo. Lo anterior se debe principalmente a que en la construcción de $C_3$ impacta de mayor manera el valor de $Y$ que de $Z$ dado a los coeficientes en su construcción, que son 0.9 y -0.25 respectivamente.
+
+De forma adicional podemos mostrar las correlaciones en donde se observa la alta asociación lineal de $C_3$ e $Y$ y la baja entre $C_3$ y $Z$ lo que apoya a los resultados obtenidos.
+
+```{r}
+datos %>%  
+  select(C2, Y, Z) %>%  
+  cor(., use = "pairwise.complete.obs") %>% kable(., caption = "Tabla de correlaciones") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+Ahora bien, de manera sustantiva podemos notar un resultado clave. En términos generales los parámetros estimados para la regresión múltiple y simple son similares pero no exactamente iguales. En la regresión múltiple el efecto parcial de Y sobre C es de `r summary(reglinC3_YZ)$coef[2]`, mientras que en la simple es de `r summary(reglinC3_Y)$coef[2]`. Si bien son valores similares, no son exactamente iguales. La razón es que entre $Y$ y $Z$ existe una pequeña correlación cercana a *0.02*. Entonces con ello podemos mostrar las implicancias del *Teorema de Frish-Waugh-Lovell*. 
+
+Tenemos el siguiente modelo real
+
+$$
+C = \beta_1 Y+ \beta_2Z + u 
+$$
+Cuando estimamos la regresión esto se ve matricialmente de la siguiente forma
+
+\begin{equation}
+\begin{bmatrix}
+Y'Y & Y'Z \\
+Z'Y & Z'Z 
+\end{bmatrix}
+\begin{bmatrix}
+\beta_1 \\
+\beta_2  
+\end{bmatrix} = \begin{bmatrix}
+Y'C \\
+Z'C 
+\end{bmatrix}
+\end{equation} 
+
+Modelos encontrar que 
+
+$$\hat\beta_1 = (Y'Y)^-1Y'C - (Y'Y)^-1Y'Z\hat \beta_2 $$
+
+Análogamente 
+$$\hat\beta_2 = (Z'Z)^-1Z'C - (Z'Z)^-1Z'Y\hat\beta_2 $$
+
+Entonces, cuando estimamos la regresión por *OLS* en términos multivariados tenemos que los parámetros se calculan de la forma tan de que la regresión de $Y$ sobre $C$ se calcula corrigiendo o descontando por $(Y'Y)^-1Y'CZ\hat \beta_2$. En otras palabras, esto considera por un lado la *relación* que establecen las variables independientes, o como se indica en Greene(2003,p.148) la regresión de las variables $Z$ parcializadas y luego puestas en conjunto en matriz de todas las variables $Y$. Esto solo sería cero si $Y$ no está linealmente relacionada con $Z$, lo que sabemos que no es así, pues no son completamente ortogonales. La otra opción es que $\hat \beta_2=0$, es decir, que no sea estadísticamente signficativo, pero como podemos ver tanto en el modelo 5 como 7, la relación entre Z y C es estadísticamente significativa. 
+
+Entonces, lo que estamos pasando por *alto* cuando hacemos regresiones lineales separadas es que las variables dependientes comparten varianza, por lo que para poder interpretar su aporte marginal de manera rigurosa, debemos descontarlas de la estimación del parámetro para tener el *efecto neto de Y*, que es lo que frecuentemente llamamos **ceteris paribus**
+
+## Pregunta 9
+
+Generamos un vector aleatorio y lo llamamos $\epsilon_3$ tal que este provenga de una distribución normal  con  media  10  y desviación  estándar  de  5.  Generemos además  $W=0.9\cdot Y + \epsilon_3$.  Compute  la  correlación  entre W e Y.
+
+Además, generamos un vector aleatorio y lo llamamos $\epsilon_4$ tal que este provenga de una distribución normal con media 0 y desviación estándar de 50. Creamos la variable $C_4 = 0.9 \cdot Y - 0.25\cdot W + \epsilon_4$. Realizamos la  regresión de $C_4$  en  $Y$  y  $W$.  Explique  por  qué  obtiene esos resultados. 
+
+```{r, echo = F, include =F}
+datos <- datos %>%  
+  mutate(
+    e3 = rnorm(n = 1000, mean = 10, sd = 5),
+    W = 0.9 * Y + e3
+    )
+```
+
+```{r, echo = F}
+datos %>%  
+  select(W, Y) %>%  
+cor(.) %>% kable(., caption = "Matriz de correlaciones") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+A partir de la matriz de correlaciones vemos que existe una fuerte relación entre $Y$ y $W$. Ahora generaremos la variable dependiente $C_4$ a partir de una combinación lineal de $Y$ y $W$, junto a un término de error. Evidentemente esto nos traerá un problema de multicolinelidad
+
+```{r, echo = F, include = F}
+datos <- datos %>%  
+  mutate(
+    e4 = rnorm(n = 1000, mean = 10, sd = 50),
+    C4 = 0.9 * Y - 0.25 * W + e4
+    )
+
+
+reglinC4_YW <- lm(C4 ~ Y + W, data = datos)
+summary(reglinC4_YW)
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(l = reglinC4_YW, digits = 6,                caption = "Modelos de regresión lineal múltiple", 
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = c("Modelo 8"),
+               float.pos = "H")
+
+```
+
+En el cuadro con el modelo 8 podemos notar que  en promedio, el efecto parcial que tiene $Y$ sobre $C_3$ es de `r summary(reglinC4_YW)$coef[2]` puntos ($\hat \beta = 0.9$), con un 99% de confianza. Mientras que no podemos decir lo mismo de $W$ el cuál si bien muestra un efecto negativo, este no es estadísticamente significativo. Evidentemente el error estándar ha crecido, lo que se hace evidente en el Cuadro 21 que muestra los intervalos de confianza. 
+
+```{r, echo = F}
+df_intervalo <- confint2(reglinC4_YW, level = 0.95)
+df_intervalo %>% kable(., caption = "Intervalo de confianza para Modelo 6") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+```
+
+También se expresa en el siguiente *forestplot*, donde ambas variables tienen un gran intervalo de confianza, lo que se debe a la pérdida de precisión en la estimación pues ahora no solo tenemos el error aleatorio del modelo original, sino que un error compuesto que proviene desde $W$. 
+
+```{r, echo = F}
+sjPlot::plot_model(reglinC4_YW)
+```
+
+En términos globales vemos que ahora el modelo ha disminuido su capacidad de explicar la varianza de $C$ a un 26.5%. Uno se podría preguntar qué pasa con el test $F$ que sigue siendo significativo. La razón es que si bien $F$ es potente para implementar hipótesis conjuntas, este no distingue efectos parciales. Por lo que tal como dice Wooldrige, también se hace sensible a *multicolinealidad* (Wooldrige, 2017).
+
+```{r, echo = F}
+# test F
+glance(reglinC4_YW) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(.) %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+```
+
+Recordemos que implica esto. Uno de los requisitos de *OLS* es tener una matriz de variables aleatorias de rango completo para que pueda ser invertible y definida positiva, pues si no, no sería estimable la regresión. Eso implica que no exista una relación lineal **exacta** entre las variables independientes, lo que se puede probar con si hay o no correlación perfecta (en ese caso, casi lo hay, de no ser por el término de error $e_4$). Pero Greene profundiza en esto, y más bien indica que la multicolinealidad es un problema y aparece en contextos donde la combinación lineal es una función lineal exacta de más variables. Esto es clave para la parcialización de efectos de las variables aleatorias. Recordemos cómo quedaba demostrado el teorema de *Frish-Waugh*. Este nos dice que descontaremos del coeficiente estimado la relación entre los dos parámetros. Si esta correlación es 1, en el fondo estaremos descontando una parte importante del tamaño de efecto sobre el coeficiente estimado.
+
+Por último, la multicolinealidad trae un problema no solo de sesgo sino que de ineficiencia. Notemos que si ponemos en una regresión dos veces la misma variable, y sabemos que esa variable tiene un componente de error, en el proceso de estimación, tendremos una mayor suma de residuos, y que como demostramos arriba, si la varianza de la variable con error es muy grande, entonces podríamos enfrentar problemas de consistencia y con ello la inferencia ya no sería válida. 
+
+```{r, echo = F}
+datos %>%  
+  select(C4, W, Y) %>%  
+cor(.) %>% kable(., caption = "Matriz de correlaciones") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+```
+
+
+## Pregunta 10
+
+Haremos dos regresiones separadas. La primera de $C_4$ en $Y$ y la segunda de $C_4$ en $W$. 
+
+
+```{r, echo = F, include = F}
+reglinC4_Y <- lm(C4 ~ Y, data = datos)
+reglinC4_W <- lm(C4 ~ W, data = datos)
+
+summary(reglinC4_Y)
+summary(reglinC4_W)
+
+```
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(l = list(reglinC4_Y, reglinC4_W), digits = 6,                caption = "Modelos de regresión lineal simple", 
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = c("Modelo 9", "Modelo 10"),
+               float.pos = "H")
+
+```
+
+
+```{r, echo = F}
+# test F
+glance(reglinC4_W) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(., caption = "Ajuste global Modelo W") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+glance(reglinC4_Y) %>%  
+  select(r.squared, 'F statistic'=statistic, p.value) %>% kable(., caption = "Ajuste global Modelo W") %>% 
+    kableExtra::kable_styling(latex_options =c( "HOLD_position"), position = "center")
+
+```
+
+Como podemos ver ambos modelos poseen coeficientes significativos al 99% de confianza, además de ser globalmente signficativos como se ve en el Cuadro 24 y 25.
+
+Ahora bien, para analizar qué está ocurriendo hay dos cosas que tener en cuenta:
+1. Recordemos que entre $Y$ y $W$ existía correlación del 0.99 por lo que luego cada uno de forma independiente se correlaciona de forma muy similar con $C_4$.
+
+2. Es más, en un principio $C_4 = 0.9Y - 0.25W + e4$, y reemplazando $W = 0.9Y + e3$ tenemos que $C_4 = 0.9Y - 0.25(0.9Y + e3) + e4 = 0.675Y +  e'$, con $e' = e4 - 0.25e_3$, por lo que finalmente $C_4$ es  una combinación lineal de $Y$ más una perturbación. 
+
+
+Con eso, es evidente que estas regresiones lineales simple están replicando una regresión lineal similar, solo que la de $W$ sobre $C$ tiene un término de error adicional. Pero no es casual que sus coeficientes parciales sean prácticamente los mismos (cercano a 0.6), y que sus coeficientes de determinación también. En ese sentido, la diferencia con el modelo múltiple está que los modelos simples no nos otorgan una visión de como afecta Y a C, o como W afecta a C por separado, pues no estamos controlado por su varianza compartida. En ese sentido, tenemos un *sesgo de variable omitida*, toda vez que supieramos que el modelo real se compone de $Y + Z$. Como indica Greene (2003) ese sesgo de variable omitida será cada vez mayor si es que las variable en el modelo y la que no está están fuertemente relacionadas. Esto se escribe como
+
+$$E(\bar\beta_1) = \beta_1 + \delta_2 \cdot \beta_2$$
+donde $\delta_2$ es $(Y'Y)^{-1}YW$ y $\bar \beta$ es el vector de coeficientes de la regresión que omite la matriz de W, y $\beta_1, \beta2$ son los vectores verdaderos de coeficientes de regresión que incluyen a $Y,Z$. Luego el sesgo de la variable omitida esta dado por
+
+$$E(\bar\beta_1 - \beta_1|Y) = \delta_2 \cdot \beta_2$$
+Ahora bien, no debemos olvidar que este modelo está mal especificado dado que $Y$ y $W$ son una combinación lineal funcional. Entonces, teóricamente si el modelo real solo incluye a $Y$, entonces no habría sesgo de variable omitida y el modelo estimado simple es el correcto. 
+
+## Pregunta 11
+
+Hacemos una la regresión  de $C_3$  en  $Y$ y  $Z$ pero  omita  se omite la  constante.  Explique  por  qué  obtiene  esos resultados.  
+
+
+```{r}
+# -1 sin constante
+reglinC3_YZ_sinb0 <- lm(C3 ~ Y + Z - 1, data = datos)
+
+```
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(l = list(reglinC3_YZ_sinb0, reglinC3_YZ), digits = 6,                caption = "Modelos de regresión lineal", 
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = c("Modelo sin intercepto", "Modelo con intercepto"),
+               float.pos = "H")
+
+```
+
+
+
+En términos descriptivos, se obtiene que la estimación asociada a $Y$ es más precisa en el modelo sin constante que el modelo anterior con el intercepto. Esto se debe a que en el modelo con intercepto la estimación asociada no era signigicativa lo que hace que al no considerarla en el ajuste se obtengan mejores resultados en términos de significancia.
+
+Ahora bien, profundicemos en esto. La pendiente en una regresión que contiene el término constante puede ser obtenida transformando los datos en su desviación promedio, y luego, regresando la variable dependiente en esta nueva forma de las variables independientes "desviadas" (*mean deviation form*, como dice Greene). Sea X una constante i en la primera columna de la matriz de variables aleatorias. La solucion del intercepto $\beta_0$ en este caso es la pendiente de la regresión que contiene el término constante
+
+$$
+(1) X = X - i(i'i)^{-1}i'X \\
+(2) X =  X- i\bar X \\
+(3) X = M^0X
+$$
+Así, podemos notar que existirá una versión modificada del *residual marker*, por lo que si omitimos esto en la regresión, básicamente lo que se transforma no solo el $\beta_{1,2}$, sino que también la suma de residuos que se obtienen de *OLS*. Es por ello, que si se omite la pendiente, tendremos un nuevo ajuste del modelo, dado que este si es relevante para la $SSR$. Veamos como se ve gráficamente
+
+```{r, echo = F}
+sjPlot::plot_model(reglinC3_YZ_sinb0, title = "Modelo sin intercepto")
+sjPlot::plot_model(reglinC3_YZ, title = "Modelo con intercepto")
+```
+
+
+## Pregunta 12
+
+Se eliminaron las últimas 950 observaciones de su muestra.Haga las siguientes regresiones:
+
+(a) $C$ en $Y$;
+
+(b) $C$ en $Y_1$;
+
+(c) $C_1$ en $Y$;
+
+(d) $C_3$ en $Y$ y $Z$;
+
+(e) $C_4$ en $Y$ y $W$ 
+
+Explique por qué obtiene esos resultados.
+
+```{r, echo = FALSE, include = FALSE}
+datos50_primeros <- datos %>%  
+  filter(row_number() <= 50)
+
+glimpse(datos50_primeros) # explorar datos
+modela <-lm(C ~ Y, data = datos50_primeros)
+modelb <- lm(C ~ Y1, data = datos50_primeros)
+modelc <- summary(lm(C1 ~ Y, data = datos50_primeros))
+modeld <- lm(C3 ~ Y, data = datos50_primeros)
+modele <- lm(C4 ~ W, data = datos50_primeros)
+```
+
+
+```{r, results='asis', echo = F}
+# Presentacion
+texreg::texreg(l = list(modela, modelb, modelc, modeld, modele), digits = 6,                caption = "Modelos de regresión - Muestra acotada", 
+               caption.above = T,
+               include.adjrs = T,
+               include.fstatistic = F, 
+               include.rmse = F,
+               custom.model.names = c("(A)","(B)","(C)", "(D)", "(E)"),
+               float.pos = "H")
+
+```
+
+
+En el cuadro 27 podemos ver un resultado muy interesante respecto a un aspecto que muchas veces confunde en los modelos de regresión. Podemos notar que las estimaciones sobreviven en términos de tamaño efecto y significancia, aún así cuando hemos reducido la muestra. Evidentemente no son *exactamente los mismo*, pues el costo que se tiene al reducir el *tamaño de muestra* es la pérdida de precisión. Así, si uno mira cifras significativas, ya al segundo decimal las estimaciones difieren (al menos desde el modelo *(B)* en adelante). Probablemente lo más notorio está en el ajuste del modelo, donde en algunos casos la variación es de 2%, en promedio. Empero, la idea que se quiere calcar es que, al menos en distribución, los parámetros de la regresión siguen siendo similares. La importancia de ello está en saber distinguir entonces, la importancia y diferencia entre Teoremas Centrales de Límite (TCL) y Leyes de Grandes Números (LGN). Este último ejercicio tiene que ver con TCL y no LGN.
+
+A partir del Teorema Central del Límite de *Lindeber-Feller* podemos decir que la convergencia en distribución nos permite relacionar estadísticamente los parámetros de la muestra y la población. En particular podemos decir que sea cual sea la distribución de la población, si extraemos una muestra aleatoria de *gran tamaño* y que esa selección es independiente de sacar otra (no hay regla de selección), entonces la distribución del parámetro en la muestra tiende a una normal también. Si esto es así, entonces las estimaciones de los parámetros son estadísticamente equivalentes a las poblacionales. Lo interesante entonces, es que estas últimas regresiones nos dicen que 50 de tamaño de muestra es lo suficientemente grande para seguir obteniendo **en distribución** parámetros similares. Lo que perdemos eso sí, es indudablemente precisión pero al costo de ser más eficientes. 
+
+# Parte 2
+
+El código que generalos dos loops se pueden encontrar en el archivo *resultados_ problem2.R*. Además, sus resultados están en *problem2.pdf*
+
+```{r, eval = F}
+source("problem2.R", encoding = 'UTF-8')
+```
+
+Respecto al análisis podemos decir que un aspecto importante que discutíamos al finalizar la parte 1 tiene que ver con qué depende la distribución de los parámetros estimados de *OLS*.
+
+La distribución de los parámetros estimados no depende del tamaño de la muestra. En las primeras tres láminas podemos notar que tenemos una distribución normal con tamaño de muestra 50, 100 y 500, y podemos notar cómo no cambia el valor esperado de los coeficientes. Esto nos dice que para tanto para 50 como para 500 de tamaño de muestra podemos hablar de una estimación que converge a un mismo valor estadísticamente. Como comentábamos anteriormente, la particularidad de esta **convergencia en distribución** no nos dice si este valor existe en el límite y que es, sino que nos permite relacionar estadísticamente los parámetros de la muestra y la población, aspecto muy relevante para la inferencia. Entonces, si la selección de la muestra es aleatoria, realmente entre elegir una muestra de 50 o 500, el *trade-off* del investigador será un clivaje entre eficiencia o precisión. 
+
+Si bien la convergencia no está dada por este tipo de teoremas, si aportan información muy importante para estimación de *OLS*. La razón es que no siempre tendremos muestras asintóticas, por lo que tendremos que restringir nuestro análisis a lo que si vemos. Los Teoremas Centrales de Límite de todas formas nos aportarán para saber como se comporta **en distribución** los parámetros, sus varianzas y los test asociados en muestra pequeña. 
+Una pregunta importante es ¿es este análisis sólo válido para distribuciones normales? La respuesta es no. Los teoremas de *Lindeberg y Feller* y *Lindeberg y Levy* nos permiten decir que sea cual sea la distribución de la variable aleatoria, si extraemos una muestra lo suficientemente grande, y que esa selección sea independiente, entonces podemos decir que la media de la muestra de nuestroa parámetros tiende a una distirbución normal, y con un primero momento con media poblacional y un segundo momento de varianza finita. Entonces, la respuesta a si la distribución de los resultado depende de la forma de distribución de la variable aleatoria, la respuesta es que no (podemos notar esto fácilmente comparando los resultados para $\beta_1$ y $\beta_2$, por ejemplo, en la página 1).
+
+Respecto al error y su distribución, parece importante destacar un punto indicado en el *TCL de Lindeberg-Feller*. Al final, es difícil asegurar que la varianza sea la misma en cada muestra de variables aleatorias, lo que nos lleva tener distribuciones de error distinta en cada una de ellas. Pero, independiente de eso, tanto la teoría como los resultados de las figuras nos muestran que pese las distintas distribuciones de los errores, mientras sus varianzas sean finitas, entonces se puede demostrar que se cumple el principio de dominancia: esto es, que independiente de que algún valor se "dispare" y se produce una gran dispersión y error, eso no implica que la muestra no vaya a convergen en distribución a una normal. Más adelante cuándo discutamos las implicancias en LGN se entenderá mejor. 
+
+$$
+\sqrt n (\hat \beta - \beta) \longrightarrow N(0, \sigma ^2(X'X)^{-1})
+$$
+
+De hecho, las propiedades de los estimadores en *OLS* en muestras pequeñas son una buena guía para obtener un rango de probables resultados de una muestra de datos. Eso nos dice que finalmente "*los cimientos*" del método estimación no tiene que ver en gran medida al tamaño de muestra. Es así como en un contexto asintótico, donde por ejemplo, las variables son estocásticas y por tanto los errores podrían ir cambiando en cada experimento que se haga, *OLS* no pierde sus propiedades fundamentales. Por ejemplo, las *Grenander* estableció condiciones para incluso en contextos tan "adversos" donde no se sabe como distribuye exactamente el error o si realmente el ponderador de las variables aleatorias converge a algo. Lo que dice estas condiciones es bastante razonable, e incluso posible de inferir de nuestros resultados:
+
+1. La suma de cuadrados continua creciendo en la medida en que crece el tamaño de muestra (más información se incorpora para estimar). *En nuestra figurade la pagina 35 y 36 se nota claramente. La muestra aumentó y se obtuvo más precisión respecto a la distribución *
+
+2. No hay dominancia de los valores extremos o las observaciones individuales se hacen menos importantes. *Por ejemplo, en la figura página 33 si bien se tienen un par de casos bajo el 0.9 la estimación de $\beta$ no cambia*.
+
+3. La condición de rango completo se seguirá cumplimiento cuando la muestra aumenta de tamaño, es decir, agregar más muestra no implica que vayamos a perder información pues las observaciones son linealmente independientes (*practicamente imposible*). 
+
+**Entonces, así y todo, nuestros coeficiente seguirán siendo sesgados y consistentes**. Entonces, ¿cuál es la condición o teoría límite en la que sin ella probablemente no podamos hacer todas las generalizaciones que hacemos con *OLS*? Esta es la **Ley de Grandes Números**, la que nos muestra las condiciones **necesarias y suficientes** para que el experimento no se desvié del valor esperado o en otras palabras para que en el límite exista nuestro estimador, y que este sea un evento en la distribución que converge al valor verdadero. 
+
+Como podemos ver en las primeras 30 páginas, la distribución tiende a una normal con momentos bien definidos en términos de valor esperado, varianza, simetría y curtosis. Es decir, pese a que dos muestran puedan ser de tamaño 500, solo cuando aumentamos las repeticiones del experimento la distribución de los parámetros tiende a una normal. 
+
+Podemos también descartar el argumento sobre que este resultado se debe a la función de distribución de probabilidad del error. En línea con Kolmogorov 2 de la Ley Fuerte de Grandes Números podemos decir que a medida que el experimento de repite más veces, en promedio la desviación del estimador $\beta$ respecto a su valor esperado cada vez será menor. Y esto, con probabilidad 1. Lo importante que nos aporta este teorema es que no solo si las variables no son identicamente distribuidas (da igual que no sean *Bernoulli*, como proponía el Teorema de Borel), sino que solo basta con que los primeros momentos estén definidos y las variables aleatorias sean independientes. 
+
+Notemos que en la página 18-45 tenemos una distribución del error *Poisson* en la 21-52 una *Uniforme* y en la 9-36 una *Normal*, con distintos tamaños de muestra y el resultado es el mismo, lo único en común es que el experimento se ha repetido 500 veces. Con ello podemos notar que tanto $\beta_1$ como $beta_2$ no solo convergen en todos al mismo valor, sino que lo más impresionante es que en distirbución se ve que el "valor verdadero" está en la zona más probable de la función de distribución de probabilidad (quizás donde menos se nota es en la unirme). Así y todo, ambos coeficientes están dentro de los valores reales (una manera simple de verlo es notificar si la línea roja coincide o no con la distribución de $\beta_1,2$). Para cerrar, no es trivial haber nombrado el par de soluciones para las distintas distribuciones del error, y esto es porque, inclusive si obviamos el término constante, las propiedades se mantienen. Como demostramos en la parte 1, esto solo re-escala la estimación en general, pero MCO sigue siendo MELI. 
+
+\newpage
+
+# Referencias
+
+Greene, W. H. (2003). Econometric analysis.
+
+Wooldridge, J. M. (2017). Introductory econometrics: A modern approach
