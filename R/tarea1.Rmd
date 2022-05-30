@@ -42,7 +42,7 @@ link-citations: yes
 fontsize: 11pt
 lang: "es-CL"
 abstract: |
-  El siguiente reporte tiene por objetivo presentar los análisis realizados en la Tarea N°1 del ramo Teoría Econometríca I dictado por el profesor Raimundo Soto. En la primera parte abordamos propiedades de la estimación de Mínimos Cuadrados Ordinarios, junto con un diálogo con el Teorema Central del Límite. En la parte 2 discutimos de manera más concreta los supuestos y resultados de la teoría asintótica. 
+  El siguiente reporte tiene por objetivo presentar los análisis realizados en la Tarea N°1 del ramo Teoría Econometríca I dictado por el profesor Raimundo Soto. En la primera parte abordamos propiedades de la estimación de Mínimos Cuadrados Ordinarios, junto con un diálogo con el Teorema Central del Límite. En la parte 2 discutimos de manera más concreta los supuestos y resultados de la teoría asintótica. Se puede acceder al repositorio en GitHub de la tarea [aquí](https://github.com/valentinaandrade/econometrics-theory)
 ---
 
 ```{r setup1, include=FALSE}
